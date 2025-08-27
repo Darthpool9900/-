@@ -1,7 +1,8 @@
 // src/utils/noise.ts
-import { createNoise2D } from 'simplex-noise';
+import Perlin from 'perlin-noise-3d';
 
-const noise2D = createNoise2D(() => Math.random());
+const perlin = new Perlin();
+perlin.noiseSeed(Math.floor(Math.random() * 65536)); // seed aleatória
 
 function smoothStep(t: number): number {
   return t * t * (3 - 2 * t);
@@ -24,7 +25,7 @@ function octaveNoise(
   let maxAmp = 0;
 
   for (let i = 0; i < octaves; i++) {
-    total += noise2D(x * freq, z * freq) * amp;
+    total += perlin.get(x * freq, z * freq) * amp;
     maxAmp += amp;
     freq *= 2;
     amp /= 2;
@@ -35,33 +36,22 @@ function octaveNoise(
 
 /**
  * Função de altura realista estilo Minecraft
- * Agora planícies possuem um leve declive natural
  */
 export function heightAt(x: number, z: number): number {
-  // 1. Planícies suaves (leve declive)
   const plains = octaveNoise(x, z, 4, 0.002, 10);
 
-  // Aplica declive gradual
-  const slopeFactor = 0.02; // quanto mais alto, mais inclinado
+  const slopeFactor = 0.02;
   const slope = (x + z) * slopeFactor;
-  
-  // 2. Colinas pequenas (mais frequentes)
+
   const hills = octaveNoise(x + 100, z + 100, 5, 0.02, 6);
-
-  // 3. Montanhas grandes (frequência média)
   const mountains = octaveNoise(x - 1000, z - 1000, 4, 0.005, 35);
-
-  // 4. Detalhes finos
   const detail = octaveNoise(x + 50, z - 50, 6, 0.05, 2);
 
-  // Combina camadas
   let h = plains + slope + hills + mountains + detail;
 
-  // Ajusta amplitude para evitar picos extremos
   if (h < 2) h = lerp(h, 2, 0.5);
   if (h > 80) h = lerp(h, 80, 0.5);
 
-  // Deslocamento final para manter terreno acima de zero
   h += 12;
 
   return Math.floor(h);
